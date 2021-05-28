@@ -1,0 +1,112 @@
+---
+title: "Machine Learning Project"
+author: "Obinna F. Ezeibekwe"
+date: "5/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+lapply(c("caret", "randomForest", "rpart", "rpart.plot"),
+       require, character.only = TRUE)
+```
+
+## Data Collection and Wrangling
+
+I start by loading the required R packages that will enable me to do the analysis for this project. Specifically, I losded packages such as *caret*, *randomForest*, *rpart* and *rpart.plot*. Then, I use the set.seed() command so that my result can be reproduced. The next step is to download the data from a website and also replace missing values with **NA**. I checked the dimension of the data and looked at the first few rows.
+
+The next phase of the data cleaning is to delete columns with all missing values. This operation removes 100 columns from the dataset. Also, I remove seven irrelevant variables so that we are left with 53 variables.
+
+```{r data, echo=TRUE}
+set.seed(66651)
+
+
+#Download the dataset from online source and replace all missing data with "NA"
+trainingURL <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", na.strings = c("NA", "#DIV/0!", ""))
+testingURL <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", na.strings = c("NA", "#DIV/0!", ""))
+
+dim(trainingURL)
+dim(testingURL)
+#head(trainingURL)
+
+#Delete columns with all missing values
+trainingURL <- trainingURL[, colSums(is.na(trainingURL)) == 0]
+testingURL <- testingURL[, colSums(is.na(testingURL)) == 0]
+
+dim(trainingURL)
+dim(testingURL)
+
+trainingURL   <-trainingURL[, -c(1:7)]
+testingURL <-testingURL[, -c(1:7)]
+
+dim(trainingURL)
+dim(testingURL)
+
+```
+
+## Partitioning the *trainingURL* data set to allow cross-validation
+
+The *trainingURL* data set contains 53 variables and 19622 obs while the testingURL data set contains 53 variables and 20 obs. To perform cross-validation, the *trainingURL* data set is partitioned into two sets - training (70%) and testing (30%).
+
+The dependent variable *classe* contains 5 categories: A, B, C, D, and E. For this data set, “participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in 5 different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D), and throwing the hips to the front (Class E).
+
+I use the *ggplot* command to plot it to see the frequency of each category in the training data set. The plot shows that the categories are relatively equal to each other except category A. 
+
+
+```{r pressure, echo=FALSE}
+inTrain <- createDataPartition(y = trainingURL$classe, p = 0.7, list = FALSE)
+training <- trainingURL[inTrain, ] 
+testing <- trainingURL[-inTrain, ]
+
+dim(training)
+dim(testing)
+
+ggplot(training, aes(classe)) +
+  geom_bar(fill = "#0073C2FF")
+```
+
+## First prediction model: Using Decision Tree
+
+The result shows that the accuracy of this model is 0.744 with a 95 percent confidence interval of 0.7331 to 0.7555.
+
+```{r decision tree, echo=TRUE}
+mod1 <- rpart(classe ~ ., data = training, method = "class")
+
+# Prediction
+pred1 <- predict(mod1, testing, type = "class")
+
+# Plot of the Decision Tree
+rpart.plot(mod1, main = "Classification Tree", extra = 102, under = TRUE,
+           faclen = 0)
+
+# Test results on our testing data set
+confusionMatrix(factor(pred1), factor(testing$classe))
+
+```
+
+## Second prediction model: Using Random Forest
+
+The result shows that the accuracy of this model is 0.996 with a 95 percent confidence interval of 0.9946 to 0.9978. The Random Forest algorithm performed better than Decision Trees because of better accuracy. The expected out-of-sample error, calculated as 1 - accuracy for predictions made against the cross-validation set, is 0.0036. The test data set comprises 20 cases with an accuracy rate that is above 99% on our cross-validation data. This suggests that most of the test samples will be correctly classified.
+
+```{r rf, echo=TRUE}
+mod2 <- randomForest(factor(classe) ~ ., data = training, method = "class")
+
+#Prediction
+pred2 <- predict(mod2, testing, type = "class")
+
+#Test results on testing data set
+confusionMatrix(factor(pred2), factor(testing$classe))
+
+```
+
+## Predict outcome levels on the original testing data set, *testingURL*, using Random Forest 
+
+```{r finalpred, echo=TRUE}
+predfinal <- predict(mod2, testingURL, type = "class")
+predfinal
+
+```
+
+#algorithm
